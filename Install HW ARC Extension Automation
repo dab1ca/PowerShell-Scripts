@@ -1,0 +1,66 @@
+Param(
+	[Parameter(Mandatory = $true)]
+	[string] $subscriptionId,
+	[Parameter(Mandatory = $true)]
+	[string] $automationAccountName,
+	[Parameter(Mandatory = $true)]
+	[string] $resourceGroupName,
+	[Parameter(Mandatory = $true)]
+	[string] $hybridRunbookWorkerGroupName,
+	[Parameter(Mandatory = $true)]
+	[string] $ARCresourceGroupName
+)
+
+#Authenticate to Azure with Automation RAA
+$connection = Get-AutomationConnection -Name AzureRunAsConnection
+Connect-AzAccount -ServicePrincipal -Tenant $connection.TenantID -ApplicationId $connection.ApplicationID -CertificateThumbprint $connection.CertificateThumbprint
+Set-AzContext -SubscriptionId $subscriptionId
+
+#Configure request common data
+$token = (get-azaccesstoken).Token
+$headers = @{Authorization = "Bearer $token"}
+$contentType = "application/json"
+
+#Get all machines in RG
+$ARCMachines = Get-AzConnectedMachine -ResourceGroupName $ARCresourceGroupName
+Foreach ($ARCMachine in $ARCMachines)
+{
+	#Generate an Id and create request uri
+	$hrwId = New-Guid
+	$createHRWuri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.Automation/automationAccounts/$automationAccountName/hybridRunbookWorkerGroups/$hybridRunbookWorkerGroupName/hybridRunbookWorkers/$($hrwId)?api-version=2021-06-22"
+    
+	#Get machine details
+	$ARCmachineName = $ARCMachine.Name
+	$ARCMachinelocation = $ARCMachine.Location
+	$ARCServerResourceId = $ARCMachine.Id
+
+	#Add machine to HWG
+	$body = @{
+   		'properties' = @{'vmResourceId' = $($ARCServerResourceId)}
+	} | ConvertTo-Json
+
+	$response = Invoke-WebRequest -Uri $createHRWuri -Method PUT -Headers $headers -Body $body -ContentType $contentType -UseBasicParsing
+	$response.Content 
+
+	#Get Automation Account data
+	$automationAccountInfouri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$resourceGroupName/providers/Microsoft.Automation/automationAccounts/$($automationAccountName)?api-version=2021-06-22"
+	$automationHybridServiceUrl = ((Invoke-WebRequest -Uri $automationAccountInfouri -Method Get -Headers $headers -UseBasicParsing).Content) | ConvertFrom-Json | Select -expand properties | Select -expand automationHybridServiceUrl
+    
+	#Create the Extension
+	$CreateARCExtensionUri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$ARCresourceGroupName/providers/Microsoft.HybridCompute/machines/$ARCmachineName/extensions/HybridWorkerExtension?api-version=2021-05-20"
+	$CreateARCExtensionBody = @{
+    	'location'   = $($ARCMachinelocation)
+    	'properties' = @{
+        	'publisher'               = 'Microsoft.Azure.Automation.HybridWorker'
+        	'type'                    = 'HybridWorkerForWindows'
+        	'typeHandlerVersion'      = '0.1.0.18'
+        	'autoUpgradeMinorVersion' = $false
+        	'enableAutomaticUpgrade'  = $false
+        	'settings'                = @{
+            	'AutomationAccountURL' = $automationHybridServiceUrl
+        	}
+    	}
+	} | ConvertTo-Json -depth 2
+    
+	Invoke-WebRequest  -Uri $CreateARCExtensionUri -Method PUT -Headers $headers -Body $CreateARCExtensionBody -ContentType $contentType -UseBasicParsing
+}
