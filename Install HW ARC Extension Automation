@@ -68,7 +68,7 @@ Foreach ($ARCMachine in $ARCMachines)
 		#'protectedSettings'       = @{
 			#'ProxyPassword' = '<PROXY PASSWORD>'
     		#}
-	} | ConvertTo-Json
+	} | ConvertTo-Json -depth 2 #3 if Proxy configuraiton added
     
 	Invoke-WebRequest  -Uri $CreateARCExtensionUri -Method PUT -Headers $headers -Body $CreateARCExtensionBody -ContentType $contentType -UseBasicParsing
 }
