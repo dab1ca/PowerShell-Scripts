@@ -57,10 +57,18 @@ Foreach ($ARCMachine in $ARCMachines)
         	'autoUpgradeMinorVersion' = $false
         	'enableAutomaticUpgrade'  = $false
         	'settings'                = @{
-            	'AutomationAccountURL' = $automationHybridServiceUrl
-        	}
-    	}
-	} | ConvertTo-Json -depth 2
+            		'AutomationAccountURL' = $automationHybridServiceUrl
+			#Configure Proxy Settings if needed. THE MACHINES ON WHICH THE SCRIPT IS RUN SHOULD USE THE SAME PROXY CONFIGURATION
+			#'ProxySettings' = @{
+        			#'ProxyServer' = '<IP>:<PORT>'
+				#'UserName'='<USERNAME>'
+        			#}
+        		}
+		#Provide proxy authentication in protected settings
+		#'protectedSettings'       = @{
+			#'ProxyPassword' = '<PROXY PASSWORD>'
+    		#}
+	} | ConvertTo-Json
     
 	Invoke-WebRequest  -Uri $CreateARCExtensionUri -Method PUT -Headers $headers -Body $CreateARCExtensionBody -ContentType $contentType -UseBasicParsing
 }
