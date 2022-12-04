@@ -34,7 +34,7 @@ function main
 	}
 	return
 }
-# Get a list of VMs
+# Get a list of VMswaa
 
 function GetVMList ([string]$resourceGroupName)
 {
