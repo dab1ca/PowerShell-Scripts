@@ -1,0 +1,31 @@
+$AzureContext = Connect-AzAccount -Identity
+
+Write-Output -InputObject $AzureContext
+Set-AzContext -Subscription "2277ce87-259c-4431-93d6-d5d5a20c8d25"
+$token = (Get-AzAccessToken).Token
+$headers = @{
+    "Authorization" = "Bearer $token"
+}
+# $VMs = Get-AzVM | Where-Object {$_.Tags.Keys -contains "StartVm06Daily" -and $_.Tags.Values -contains "Yes"} | Select-Object Name, ResourceGroupName, Tags
+$VMs = Get-AzVM -ResourceGroupName ttsvtest
+
+foreach ($VM in $VMs) {
+    $VMName = $VM.Name
+    $VMResourceGroup = $VM.ResourceGroupName
+    $VMStatus = (Get-AzVM -Name $VMName -ResourceGroupName $VMResourceGroup -Status).Statuses[1].DisplayStatus
+    if ($VMStatus -eq "VM deallocated") {    
+        $url = "https://management.azure.com/subscriptions/2277ce87-259c-4431-93d6-d5d5a20c8d25/resourceGroups/$VMResourceGroup/providers/Microsoft.Compute/virtualMachines/$VMName/start?api-version=2023-03-01"         
+        $response = Invoke-Webrequest -Headers $headers -Method Post -Uri $url
+        if ($response.StatusDescription -eq "Accepted") {
+            Write-Output "Successfully started $($VM.Name)" 
+        }
+        else
+        {
+            Write-Output "Could not start $VMName has status $VMStatus"
+        }
+    }             
+    else {
+    # Output the status of the VM
+        Write-Output "Could not start $VMName has status $VMStatus"
+    }
+}
