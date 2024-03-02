@@ -1,13 +1,13 @@
 $AzureContext = Connect-AzAccount -Identity
 
 Write-Output -InputObject $AzureContext
-Set-AzContext -Subscription "2277ce87-259c-4431-93d6-d5d5a20c8d25"
+Set-AzContext -Subscription ""
 $token = (Get-AzAccessToken).Token
 $headers = @{
     "Authorization" = "Bearer $token"
 }
 # $VMs = Get-AzVM | Where-Object {$_.Tags.Keys -contains "StartVm06Daily" -and $_.Tags.Values -contains "Yes"} | Select-Object Name, ResourceGroupName, Tags
-$VMs = Get-AzVM -ResourceGroupName ttsvtest
+$VMs = Get-AzVM -ResourceGroupName ""
 
 foreach ($VM in $VMs) {
     $VMName = $VM.Name
