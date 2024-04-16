@@ -14,16 +14,11 @@ Connect-AzAccount -Identity
 $subscriptionIdsSplit = $subscriptionIds.Split(",")
 
 # Define the desired state for Virtual Machines
-$desiredState = ""
-if ($action -eq "start") {
-    $desiredState = "VM running"
-}
-elseif ($action -eq "stop" -or $action -eq "deallocate") {
-    $desiredState = "VM deallocated"
-    $action = "deallocate"
-} 
-else {
-    Write-Output "Please enter valid action (start/stop)"
+$desiredState = $action -eq 'stop' -or $action -eq 'deallocate' ? 'VM deallocated' : $($action -eq 'start') ? "VM running" : $null
+$action = 'stop' -eq $action ? 'deallocate' : $action
+
+if ($null -eq $desiredState) {
+    Write-Output "Invalid action. Please provide a valid action (start/stop)"
     exit
 }
 
@@ -32,12 +27,7 @@ foreach ($subscriptionId in $subscriptionIdsSplit) {
     Set-AzContext -SubscriptionObject (Get-AzSubscription -SubscriptionId $subscriptionId)
 
     # Check if tag key is provided and get VMs, based on condition
-    if ($null -eq $tagKey) {
-        $VMs = Get-AzVM | Select-Object Name, ResourceGroupName
-    }
-    else {
-        $VMs = Get-AzVM | Where-Object {$_.Tags.Keys -eq $tagKey -and $_.Tags.Values -eq $tagValue} | Select-Object Name, ResourceGroupName
-    }
+    $VMs = $null -eq $tagKey ? (Get-AzVM | Select-Object Name, ResourceGroupName) : (Get-AzVM | Where-Object {$_.Tags.Keys -eq $tagKey -and $_.Tags.Values -eq $tagValue} | Select-Object Name, ResourceGroupName)
 
     # Get the access token for API authentication
     $token = (Get-AzAccessToken).Token
